@@ -5,9 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>視聴画面</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="/main.js" defer></script>
   </head>
   <body>
-    <h1>視聴画面</h1>
+    <header class="app-header">
+      <h1>視聴画面</h1>
+    </header>
+    <div class="app-container">
+      <section class="video-area" aria-label="動画表示領域">
+        <video id="video" controls autoplay muted playsinline></video>
+      </section>
+      <h2 class="area-title comment-title">コメント</h2>
+      <section class="comment-area" aria-label="コメント表示領域"></section>
+      <h2 class="area-title send-title">コメント・アイテム送信</h2>
+      <section class="send-area" aria-label="コメント・アイテム送信領域">
+        <input type="text" class="send-input" placeholder="コメントを入力" />
+        <button type="button" class="send-button">送信</button>
+      </section>
+    </div>
   </body>
 </html>
