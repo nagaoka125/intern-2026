@@ -20,8 +20,11 @@
       <section class="comment-area" aria-label="コメント表示領域"></section>
       <h2 class="area-title send-title">コメント・アイテム送信</h2>
       <section class="send-area" aria-label="コメント・アイテム送信領域">
-        <input type="text" class="send-input" placeholder="コメントを入力" />
-        <button type="button" class="send-button">送信</button>
+        <div class="item-list" aria-label="アイテム一覧"></div>
+        <div class="send-row">
+          <textarea class="send-input" placeholder="コメントを入力" maxlength="200" rows="1"></textarea>
+          <button type="button" class="send-button">送信</button>
+        </div>
       </section>
     </div>
   </body>
