@@ -6,6 +6,12 @@ const ITEMS_POLL_INTERVAL_MS = 15000;
 const MAX_COMMENT_LENGTH = 200;
 const SEND_COOLDOWN_MS = 5000;
 
+// コスト強度の正規化基準。実データの5段階(10/50/150/400/1000)に直接依存させず、
+// アイテムサーバー側で将来コスト値が増減しても見た目が破綻しないよう余裕を持たせた
+// 固定範囲を対数スケールで使う（詳細は CONTEXT.md の「コスト強度」を参照）
+const COST_INTENSITY_MIN_COST = 1;
+const COST_INTENSITY_MAX_COST = 1500;
+
 // 一度に選択できるアイテムは1つだけ。アイテム一覧の描画と送信処理の両方から参照する
 let selectedItemId = null;
 
@@ -95,41 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const sendAreaEl = document.querySelector(".send-area");
-
-  // デスクトップ（CSS Grid）では、外側の grid-template-rows の "auto" 行が
-  // 内側の要素のアニメーション中の高さをフレームごとに追従できず、コメント欄側
-  // （列幅を直接アニメーションさせている）と違ってカクついてしまう。そのため
-  // 送信欄の表示/非表示だけは、実測した高さのpx値同士を直接アニメーションさせる
-  // （"auto" 同士は補間できないため、開始値をまず明示的なpxで固定してから遷移させる）
-  const animateSendAreaRow = (willBeVisible) => {
-    if (!sendAreaEl) return;
-    const startHeight = sendAreaEl.parentElement.getBoundingClientRect().height;
-    const targetHeight = willBeVisible ? sendAreaEl.scrollHeight : 0;
-
-    console.log("[debug] startHeight", startHeight, "targetHeight", targetHeight);
-    appContainer.style.gridTemplateRows = `minmax(0, 1fr) ${startHeight}px`;
-    console.log("[debug] after start set:", appContainer.style.gridTemplateRows);
-    // 強制リフローで上の指定を確定させてから、目標値へ遷移させる
-    void appContainer.offsetHeight;
-    appContainer.style.gridTemplateRows = `minmax(0, 1fr) ${targetHeight}px`;
-    console.log("[debug] after target set:", appContainer.style.gridTemplateRows);
-
-    const handleTransitionEnd = (event) => {
-      if (event.target !== appContainer || event.propertyName !== "grid-template-rows") return;
-      // アニメーション終了後は CSS クラス側の定義（auto ベース）に戻し、
-      // アイテムパネルの開閉などによる通常の伸縮を妨げないようにする
-      appContainer.style.gridTemplateRows = "";
-      appContainer.removeEventListener("transitionend", handleTransitionEnd);
-    };
-    appContainer.addEventListener("transitionend", handleTransitionEnd);
-  };
-
   const setSendAreaVisible = (visible) => {
-    const wasVisible = !appContainer.classList.contains("send-hidden");
-    if (visible !== wasVisible) {
-      animateSendAreaRow(visible);
-    }
     appContainer.classList.toggle("send-hidden", !visible);
     if (sendAreaToggle) {
       sendAreaToggle.setAttribute("aria-expanded", String(visible));
@@ -462,6 +434,13 @@ function addComment(commentArea, { text, item, timestamp } = {}) {
   const entry = document.createElement("div");
   entry.className = "comment-entry";
 
+  // アイテム付きコメントは、コストが高いほど目立つ「コスト強度演出」（背景色・発光・
+  // 登場モーション）を適用する。強度は --cost-intensity 経由でCSS側の複数の見た目に反映される
+  if (item && typeof item.cost === "number") {
+    entry.classList.add("comment-entry--priced");
+    entry.style.setProperty("--cost-intensity", calculateCostIntensity(item.cost).toFixed(3));
+  }
+
   const row = document.createElement("div");
   row.className = "comment-entry-row";
 
@@ -508,6 +487,15 @@ function addComment(commentArea, { text, item, timestamp } = {}) {
   if (wasNearBottom) {
     commentArea.scrollTop = commentArea.scrollHeight;
   }
+}
+
+// アイテムのコストを 0〜1 のコスト強度に変換する。対数スケールなので、
+// 10→50→150→400→1000 のような比率的な増え方の違いを滑らかな強さの違いとして表現できる
+function calculateCostIntensity(cost) {
+  const clamped = Math.min(Math.max(cost, COST_INTENSITY_MIN_COST), COST_INTENSITY_MAX_COST);
+  const logMin = Math.log(COST_INTENSITY_MIN_COST);
+  const logMax = Math.log(COST_INTENSITY_MAX_COST);
+  return (Math.log(clamped) - logMin) / (logMax - logMin);
 }
 
 // timestamp（ISO文字列）を "HH:MM" 形式の時刻表示に変換する。不正な値は表示しない

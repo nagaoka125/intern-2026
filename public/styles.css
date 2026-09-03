@@ -7,6 +7,8 @@
   --color-accent: #3d6b8a;
   --color-accent-hover: #4a7f9e;
   --color-danger: #e5534b;
+  /* コスト強度演出の基準色（暖色）*/
+  --color-cost-strong: #ff5a36;
 }
 
 /* デフォルトはダークテーマ。ライトテーマは data-theme="light" を html に付与して切り替える */
@@ -175,11 +177,9 @@ body {
   grid-template-rows: minmax(0, 1fr) minmax(0, auto);
   column-gap: clamp(8px, 1.5vw, 16px);
   padding: clamp(8px, 2vw, 16px);
-  /* grid-template-rows はここでは「静止状態」の切り替え用。送信欄の表示/非表示を
-     滑らかにアニメーションさせている間は、JS側が数値pxのインラインスタイルで
-     一時的に上書きする（"auto" 同士の遷移はブラウザが補間できないため） */
-  transition: grid-template-columns 300ms ease-out, column-gap 300ms ease-out,
-    grid-template-rows 300ms ease-out;
+  /* 送信欄自体の表示/非表示アニメーションは send-area-wrapper 側の内側グリッドで
+     行うため、この auto 行はそのラッパーの実際の高さを毎フレーム追従するだけでよい */
+  transition: grid-template-columns 300ms ease-out, column-gap 300ms ease-out;
 }
 
 /* コメント欄を非表示にすると右側の列が0幅になり、動画がその分だけ横に広がる。
@@ -189,11 +189,6 @@ body {
      最小コンテンツ幅までしか縮まないため、明示的に minmax(0, 0fr) にする */
   grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
   column-gap: 0;
-}
-
-/* 送信欄非表示時の静止状態（アニメーション完了後にJSがこの状態に委ねる） */
-.app-container.send-hidden {
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0fr);
 }
 
 .app-container.comment-hidden .send-area-wrapper {
@@ -295,6 +290,31 @@ body {
   animation: comment-slide-in 0.4s ease-out;
 }
 
+/* コスト強度演出: --cost-intensity (0〜1、main.js が計算) に応じて背景・発光・登場モーションの
+   強さを連動させる。3つの見た目を1つの値から導くことで、コストが高いほど目立つという体験を
+   一貫させる（詳細は CONTEXT.md の「コスト強度」「コスト強度演出」を参照） */
+.comment-entry--priced {
+  background-color: color-mix(in srgb, var(--color-cost-strong) calc(var(--cost-intensity) * 100%), var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-cost-strong) calc(var(--cost-intensity) * 100%), var(--color-border));
+  box-shadow: 0 0 calc(6px + var(--cost-intensity) * 22px) calc(1px + var(--cost-intensity) * 5px)
+    color-mix(in srgb, var(--color-cost-strong) calc(15% + var(--cost-intensity) * 55%), transparent);
+  animation: comment-pop-in 0.5s cubic-bezier(0.25, 1.4, 0.4, 1) both;
+}
+
+@keyframes comment-pop-in {
+  0% {
+    transform: scale(calc(0.82 - var(--cost-intensity) * 0.12)) translateX(60px);
+    opacity: 0.3;
+  }
+  55% {
+    transform: scale(calc(1 + var(--cost-intensity) * 0.16)) translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateX(0);
+  }
+}
+
 .comment-entry-row {
   display: flex;
   align-items: flex-start;
@@ -330,7 +350,9 @@ body {
 }
 
 .comment-item-name {
-  color: var(--color-accent-hover);
+  /* アイテム付きコメントはコスト強度演出で背景が暖色に変わるため、固有の色(青系)は
+     背景と衝突して見えにくくなる。本文と同じ色に揃えて、太字だけで区別する */
+  color: var(--color-text);
   font-weight: 600;
   /* 長い名前は折り返す。flex-grow:0 のままにして、短い名前まで行を占有しないようにする */
   flex: 0 1 auto;
@@ -354,19 +376,24 @@ body {
   white-space: nowrap;
 }
 
-/* デスクトップでは送信欄の表示/非表示アニメーションは app-container 側の
-   grid-template-rows（JSが数値pxで直接アニメーションさせる）に任せる。
-   このラッパー自身は行の高さをそのまま埋めるだけの単純な箱にする。
-   （ラッパー内側で 0fr/1fr のグリッドトリックを使う方式も試したが、外側の
-   auto 行がその内側のアニメーションをフレームごとに追従できず、実測でカクつく
-   ことを確認したため、この直接アニメーション方式に変更した） */
+/* 表示/非表示のアニメーションは item-panel-wrapper と同じ、内側に1行だけの
+   グリッドを敷いて grid-template-rows を 0fr <-> 1fr で遷移させる方式にする
+   （外側 app-container 側の auto 行は、この内側の遷移に追従して毎フレーム
+   自動的に再計算されるため、外側の値をJSで直接アニメーションさせる必要はない） */
 .send-area-wrapper {
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
   min-height: 0;
   height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
+  transition: grid-template-rows 250ms ease-out;
+}
+
+.app-container.send-hidden .send-area-wrapper {
+  grid-template-rows: minmax(0, 0fr);
 }
 
 .send-area {
@@ -730,6 +757,10 @@ body {
   }
 
   .send-area-wrapper {
+    /* デスクトップ用の height: 100% を打ち消す。flex-basis: auto は height を
+       参照するため、100% のままだと縮小不可の flex-shrink: 0 と組み合わさって
+       非表示にしても縮まなくなる（中身の高さにまかせて auto にする） */
+    height: auto;
     flex: 0 0 auto;
     display: grid;
     grid-template-rows: 1fr;
