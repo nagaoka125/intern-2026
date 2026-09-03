@@ -11,23 +11,117 @@
   <body>
     <header class="app-header">
       <h1>視聴画面</h1>
+      <div class="header-actions">
+        <button
+          type="button"
+          class="comment-toggle"
+          role="switch"
+          aria-checked="true"
+          aria-expanded="true"
+          aria-controls="comment-panel"
+        >
+          コメント <span class="switch-track" aria-hidden="true"></span>
+        </button>
+        <button
+          type="button"
+          class="send-area-toggle"
+          role="switch"
+          aria-checked="true"
+          aria-expanded="true"
+          aria-controls="send-area"
+        >
+          送信欄 <span class="switch-track" aria-hidden="true"></span>
+        </button>
+        <div class="settings">
+          <button
+            type="button"
+            class="settings-toggle"
+            aria-expanded="false"
+            aria-controls="settings-menu"
+            aria-label="設定"
+          >
+            <span aria-hidden="true">⚙️</span>
+          </button>
+          <div class="settings-menu" id="settings-menu">
+            <label class="settings-item">
+              <span>コメントを表示</span>
+              <input type="checkbox" class="settings-switch-checkbox settings-comment-checkbox" checked />
+              <span class="switch-track" aria-hidden="true"></span>
+            </label>
+            <label class="settings-item">
+              <span>送信欄を表示</span>
+              <input type="checkbox" class="settings-switch-checkbox settings-send-area-checkbox" checked />
+              <span class="switch-track" aria-hidden="true"></span>
+            </label>
+            <label class="settings-item">
+              <span>Enterキーで送信する</span>
+              <input type="checkbox" class="settings-switch-checkbox settings-enter-to-send-checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </label>
+            <label class="settings-item">
+              <span>送信後もアイテムの選択を維持する</span>
+              <input type="checkbox" class="settings-switch-checkbox settings-keep-selection-checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </label>
+            <div class="settings-item settings-theme">
+              <span class="settings-theme-label">テーマ</span>
+              <div class="theme-switch" role="group" aria-label="テーマ切り替え">
+                <button type="button" class="theme-option is-active" data-theme-choice="dark">🌙 ダーク</button>
+                <button type="button" class="theme-option" data-theme-choice="light">☀️ ライト</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </header>
     <div class="app-container">
       <section class="video-area" aria-label="動画表示領域">
         <video id="video" controls autoplay muted playsinline></video>
       </section>
-      <div class="comment-panel" aria-label="コメント表示領域">
-        <h2 class="comment-title">コメント</h2>
-        <section class="comment-area"></section>
-      </div>
-      <section class="send-area" aria-label="コメント・アイテム送信領域">
-        <div class="item-list" aria-label="アイテム一覧"></div>
-        <div class="send-row">
-          <textarea class="send-input" placeholder="コメントを入力" maxlength="200" rows="1"></textarea>
-          <button type="button" class="send-button">送信</button>
+      <div class="comment-panel-wrapper">
+        <div class="comment-panel" id="comment-panel" aria-label="コメント表示領域">
+          <h2 class="comment-title">コメント</h2>
+          <section class="comment-area"></section>
         </div>
-        <p class="send-error" role="alert" hidden></p>
-      </section>
+      </div>
+      <div class="send-area-wrapper">
+        <section class="send-area" aria-label="コメント・アイテム送信領域">
+          <div class="send-area-header">
+            <button
+              type="button"
+              class="item-panel-toggle"
+              aria-expanded="false"
+              aria-controls="item-panel"
+            >
+              <span class="item-panel-toggle-icon-generic" aria-hidden="true">🎁</span>
+              アイテム <span class="item-panel-toggle-icon" aria-hidden="true">▼</span>
+            </button>
+          </div>
+          <div class="item-panel-wrapper">
+            <div class="item-panel" id="item-panel">
+              <div class="item-filters" aria-label="アイテムの絞り込み">
+                <div class="filter-group" data-filter="group" aria-label="グループで絞り込み"></div>
+                <div class="filter-group" data-filter="cost" aria-label="金額で絞り込み">
+                  <button type="button" class="filter-chip" data-cost-band="low">〜100円</button>
+                  <button type="button" class="filter-chip" data-cost-band="mid">100〜500円</button>
+                  <button type="button" class="filter-chip" data-cost-band="high">500円〜</button>
+                </div>
+                <div class="filter-group" data-filter="animation" aria-label="アニメーションで絞り込み">
+                  <button type="button" class="filter-chip is-active" data-animation="all">すべて</button>
+                  <button type="button" class="filter-chip" data-animation="has">アニメーションあり</button>
+                  <button type="button" class="filter-chip" data-animation="none">アニメーションなし</button>
+                </div>
+              </div>
+              <div class="item-list" aria-label="アイテム一覧"></div>
+            </div>
+          </div>
+          <div class="send-row">
+            <textarea class="send-input" placeholder="コメントを入力" maxlength="200" rows="1"></textarea>
+            <button type="button" class="send-button">送信</button>
+          </div>
+          <p class="send-error" role="alert" hidden></p>
+        </section>
+      </div>
     </div>
   </body>
 </html>
