@@ -6,6 +6,15 @@ const ITEMS_POLL_INTERVAL_MS = 15000;
 const MAX_COMMENT_LENGTH = 200;
 const SEND_COOLDOWN_MS = 5000;
 
+// 一度に選択できるアイテムは1つだけ。アイテム一覧の描画と送信処理の両方から参照する
+let selectedItemId = null;
+
+function clearItemSelection() {
+  selectedItemId = null;
+  const selected = document.querySelector(".item-button.selected");
+  if (selected) selected.classList.remove("selected");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const video = document.getElementById("video");
   if (!video) return;
@@ -56,6 +65,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const renderedItemIds = new Set();
 
+  // アイテム選択はトグル式。別のアイテムを選ぶと前の選択は自動的に外れる
+  const toggleItemSelection = (itemId, button) => {
+    const currentlySelected = itemList.querySelector(".item-button.selected");
+    if (currentlySelected) {
+      currentlySelected.classList.remove("selected");
+    }
+
+    if (selectedItemId === itemId) {
+      selectedItemId = null;
+    } else {
+      selectedItemId = itemId;
+      button.classList.add("selected");
+    }
+  };
+
   // 新規アイテムだけを DocumentFragment にまとめて1回のDOM操作で追加する
   // （大量のアイテムが一度に増えてもリフローが1回で済む）
   const renderNewItems = (items) => {
@@ -64,12 +88,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fragment = document.createDocumentFragment();
     for (const item of newItems) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "item-button";
+      button.title = item.name;
+      button.addEventListener("click", () => toggleItemSelection(item.id, button));
+
       const icon = document.createElement("img");
       icon.className = "item-icon";
       icon.src = item.iconUrl;
       icon.alt = item.name;
-      icon.title = item.name;
-      fragment.appendChild(icon);
+      button.appendChild(icon);
+
+      fragment.appendChild(button);
       renderedItemIds.add(item.id);
     }
     itemList.appendChild(fragment);
@@ -95,26 +126,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const input = sendArea.querySelector(".send-input");
   const sendButton = sendArea.querySelector(".send-button");
+  const errorEl = sendArea.querySelector(".send-error");
+
+  const showSendError = (message) => {
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+  };
+
+  const hideSendError = () => {
+    errorEl.hidden = true;
+    errorEl.textContent = "";
+  };
 
   const sendComment = async () => {
     const text = input.value.trim().slice(0, MAX_COMMENT_LENGTH);
-    if (!text) return;
+    const itemId = selectedItemId;
+
+    const payload = {};
+    if (text) payload.text = text;
+    if (itemId) payload.itemId = itemId;
 
     try {
-      await fetch(COMMENT_MESSAGES_URL, {
+      const response = await fetch(COMMENT_MESSAGES_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(payload),
       });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       input.value = "";
+      clearItemSelection();
     } catch (error) {
       console.error("コメントの送信に失敗しました", error);
+      showSendError("送信に失敗しました。もう一度お試しください。");
     }
   };
 
-  sendButton.addEventListener("click", () => {
-    sendComment();
+  sendButton.addEventListener("click", async () => {
+    const text = input.value.trim();
+    const itemId = selectedItemId;
+    if (!text && !itemId) return;
+
+    hideSendError();
     sendButton.disabled = true;
+    sendButton.textContent = "送信中...";
+
+    await sendComment();
+
+    sendButton.textContent = "送信";
     setTimeout(() => {
       sendButton.disabled = false;
     }, SEND_COOLDOWN_MS);

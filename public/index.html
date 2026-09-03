@@ -16,15 +16,17 @@
       <section class="video-area" aria-label="動画表示領域">
         <video id="video" controls autoplay muted playsinline></video>
       </section>
-      <h2 class="area-title comment-title">コメント</h2>
-      <section class="comment-area" aria-label="コメント表示領域"></section>
-      <h2 class="area-title send-title">コメント・アイテム送信</h2>
+      <div class="comment-panel" aria-label="コメント表示領域">
+        <h2 class="comment-title">コメント</h2>
+        <section class="comment-area"></section>
+      </div>
       <section class="send-area" aria-label="コメント・アイテム送信領域">
         <div class="item-list" aria-label="アイテム一覧"></div>
         <div class="send-row">
           <textarea class="send-input" placeholder="コメントを入力" maxlength="200" rows="1"></textarea>
           <button type="button" class="send-button">送信</button>
         </div>
+        <p class="send-error" role="alert" hidden></p>
       </section>
     </div>
   </body>
