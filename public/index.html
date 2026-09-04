@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/css/lottery.css" />
     <link rel="stylesheet" href="/css/channels.css" />
     <link rel="stylesheet" href="/css/responsive.css" />
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest" defer></script>
     <script type="module" src="/js/main.js"></script>
   </head>
   <body>
@@ -70,8 +70,8 @@
               <div class="settings-item settings-theme">
                 <span class="settings-theme-label">テーマ</span>
                 <div class="theme-switch" role="group" aria-label="テーマ切り替え">
-                  <button type="button" class="theme-option is-active" data-theme-choice="dark">🌙 ダーク</button>
-                  <button type="button" class="theme-option" data-theme-choice="light">☀️ ライト</button>
+                  <button type="button" class="theme-option is-active" data-theme-choice="dark" aria-pressed="true">🌙 ダーク</button>
+                  <button type="button" class="theme-option" data-theme-choice="light" aria-pressed="false">☀️ ライト</button>
                 </div>
               </div>
               <div class="settings-item settings-debug">
@@ -128,21 +128,27 @@
                 <div class="item-filters" aria-label="アイテムの絞り込み">
                   <div class="filter-group" data-filter="group" aria-label="グループで絞り込み"></div>
                   <div class="filter-group" data-filter="cost" aria-label="金額で絞り込み">
-                    <button type="button" class="filter-chip" data-cost-band="low">〜100円</button>
-                    <button type="button" class="filter-chip" data-cost-band="mid">100〜500円</button>
-                    <button type="button" class="filter-chip" data-cost-band="high">500円〜</button>
+                    <button type="button" class="filter-chip" data-cost-band="low" aria-pressed="false">〜100円</button>
+                    <button type="button" class="filter-chip" data-cost-band="mid" aria-pressed="false">100〜500円</button>
+                    <button type="button" class="filter-chip" data-cost-band="high" aria-pressed="false">500円〜</button>
                   </div>
                   <div class="filter-group" data-filter="animation" aria-label="アニメーションで絞り込み">
-                    <button type="button" class="filter-chip is-active" data-animation="all">すべて</button>
-                    <button type="button" class="filter-chip" data-animation="has">アニメーションあり</button>
-                    <button type="button" class="filter-chip" data-animation="none">アニメーションなし</button>
+                    <button type="button" class="filter-chip is-active" data-animation="all" aria-pressed="true">すべて</button>
+                    <button type="button" class="filter-chip" data-animation="has" aria-pressed="false">アニメーションあり</button>
+                    <button type="button" class="filter-chip" data-animation="none" aria-pressed="false">アニメーションなし</button>
                   </div>
                 </div>
                 <div class="item-list" aria-label="アイテム一覧"></div>
               </div>
             </div>
             <div class="send-row">
-              <textarea class="send-input" placeholder="コメントを入力" maxlength="200" rows="1"></textarea>
+              <textarea
+                class="send-input"
+                placeholder="コメントを入力"
+                aria-label="コメント入力欄"
+                maxlength="200"
+                rows="1"
+              ></textarea>
               <button type="button" class="send-button">送信</button>
             </div>
             <p class="send-error" role="alert" hidden></p>

@@ -55,6 +55,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (isCurrent) {
         button.classList.add("is-current");
         button.disabled = true;
+        button.setAttribute("aria-current", "true");
       } else {
         button.addEventListener("click", () => switchChannel(channel));
       }

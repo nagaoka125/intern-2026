@@ -49,6 +49,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (resetStockButton) {
     resetStockButton.addEventListener("click", () => {
+      // 元に戻せない操作のため、実行前に確認する
+      if (!window.confirm("アイテムの所持数をすべて初期値にリセットします。よろしいですか？")) return;
       resetItemStock();
     });
   }
@@ -85,13 +87,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) || "dark";
   for (const option of themeOptions) {
-    option.classList.toggle("is-active", option.dataset.themeChoice === currentTheme);
+    const isCurrent = option.dataset.themeChoice === currentTheme;
+    option.classList.toggle("is-active", isCurrent);
+    option.setAttribute("aria-pressed", String(isCurrent));
     option.addEventListener("click", () => {
       const theme = option.dataset.themeChoice;
       applyTheme(theme);
       localStorage.setItem(THEME_STORAGE_KEY, theme);
       for (const o of themeOptions) {
         o.classList.toggle("is-active", o === option);
+        o.setAttribute("aria-pressed", String(o === option));
       }
     });
   }

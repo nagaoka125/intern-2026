@@ -62,4 +62,18 @@
   .app-container.send-hidden .send-area-wrapper {
     grid-template-rows: minmax(0, 0fr);
   }
+
+  /* タッチ操作では見た目のサイズを保ったまま、当たり判定だけ推奨サイズ(44px)に広げる */
+  .settings-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .comment-toggle,
+  .send-area-toggle,
+  .lottery-toggle,
+  .item-panel-toggle,
+  .filter-chip {
+    min-height: 44px;
+  }
 }

@@ -4,7 +4,10 @@
 .viewer-frame {
   display: flex;
   flex-direction: column;
+  /* モバイルブラウザのアドレスバー表示/非表示で基準が変わる100vhの代わりに、
+     実際の表示領域に追従する100dvhを使う（未対応ブラウザ向けに100vhをフォールバックとして残す） */
   height: 100vh;
+  height: 100dvh;
 }
 
 .app-container {

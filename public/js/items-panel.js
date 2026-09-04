@@ -68,14 +68,16 @@ document.addEventListener("DOMContentLoaded", () => {
     chip.type = "button";
     chip.className = "filter-chip";
     chip.textContent = group;
+    chip.setAttribute("aria-pressed", "false");
     chip.addEventListener("click", () => {
-      if (activeGroups.has(group)) {
+      const isActive = activeGroups.has(group);
+      if (isActive) {
         activeGroups.delete(group);
-        chip.classList.remove("is-active");
       } else {
         activeGroups.add(group);
-        chip.classList.add("is-active");
       }
+      chip.classList.toggle("is-active", !isActive);
+      chip.setAttribute("aria-pressed", String(!isActive));
       applyFilters();
     });
     groupFilterEl.appendChild(chip);
@@ -84,13 +86,14 @@ document.addEventListener("DOMContentLoaded", () => {
   for (const chip of costFilterEl.querySelectorAll(".filter-chip")) {
     const band = chip.dataset.costBand;
     chip.addEventListener("click", () => {
-      if (activeCostBands.has(band)) {
+      const isActive = activeCostBands.has(band);
+      if (isActive) {
         activeCostBands.delete(band);
-        chip.classList.remove("is-active");
       } else {
         activeCostBands.add(band);
-        chip.classList.add("is-active");
       }
+      chip.classList.toggle("is-active", !isActive);
+      chip.setAttribute("aria-pressed", String(!isActive));
       applyFilters();
     });
   }
@@ -101,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
       animationFilterValue = chip.dataset.animation;
       for (const c of animationFilterEl.querySelectorAll(".filter-chip")) {
         c.classList.toggle("is-active", c === chip);
+        c.setAttribute("aria-pressed", String(c === chip));
       }
       applyFilters();
     });
@@ -111,6 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentlySelected = itemList.querySelector(".item-button.selected");
     if (currentlySelected) {
       currentlySelected.classList.remove("selected");
+      currentlySelected.setAttribute("aria-pressed", "false");
     }
 
     if (selectedItemId === itemId) {
@@ -118,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       selectItem(itemId);
       button.classList.add("selected");
+      button.setAttribute("aria-pressed", "true");
     }
   };
 
@@ -158,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
       button.type = "button";
       button.className = "item-button";
       button.title = item.name;
+      button.setAttribute("aria-pressed", "false");
       button.addEventListener("click", () => toggleItemSelection(item.id, button));
 
       const stock = document.createElement("span");

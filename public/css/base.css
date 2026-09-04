@@ -1,4 +1,6 @@
 :root {
+  /* ネイティブUI（スクロールバー等）をテーマに合わせて描画させる */
+  color-scheme: dark;
   --color-bg: #14171c;
   --color-surface: #1d2128;
   --color-border: #333844;
@@ -13,6 +15,7 @@
 
 /* デフォルトはダークテーマ。ライトテーマは data-theme="light" を html に付与して切り替える */
 :root[data-theme="light"] {
+  color-scheme: light;
   --color-bg: #f5f6f8;
   --color-surface: #ffffff;
   --color-border: #d8dce2;
@@ -45,4 +48,15 @@ body {
   color: var(--color-text-muted);
   font-size: 14px;
   letter-spacing: 0.05em;
+}
+
+/* モーションに敏感なユーザー向けに、アニメーション・トランジションをほぼ無効化する */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
