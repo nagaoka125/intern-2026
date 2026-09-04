@@ -1,0 +1,79 @@
+.channel-panel-wrapper {
+  flex: 0 0 auto;
+  margin: 0 clamp(8px, 2vw, 16px) clamp(8px, 2vw, 16px);
+}
+
+.channel-panel {
+  background: var(--color-surface);
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 8px 12px 12px;
+}
+
+.channel-panel-title {
+  margin: 0 0 8px;
+  padding: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  /* 3行分の高さで頭打ちにし、4行目以降（10件目以降）は縦スクロールで見せる */
+  max-height: calc(3 * 92px + 2 * 8px);
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.channel-button {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 2px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: 8px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.channel-button:hover {
+  border-color: var(--color-accent);
+}
+
+/* 現在再生中のチャンネルは選び直せないため、アイテムパネルのselectedと同じ考え方で
+   枠線・背景色を変えるだけにとどめ、disabled標準の減光(opacity)は使わない */
+.channel-button.is-current {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent);
+  color: #ffffff;
+  cursor: default;
+}
+
+.channel-button.is-current .channel-button-category {
+  color: #ffffff;
+  opacity: 0.85;
+}
+
+.channel-button-title {
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-button-category {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}

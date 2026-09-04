@@ -32,6 +32,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     addComment(commentArea, payload);
   };
+
+  // チャンネル切替（ADR 0008）: SSE接続は張り直さず、表示済みコメントと
+  // 累計カウンターだけを切替のタイミングでリセットする
+  document.addEventListener("channel-switched", () => {
+    commentArea.innerHTML = "";
+    totalCommentCount = 0;
+    totalItemCount = 0;
+
+    const commentsValue = document.querySelector(".viewer-stat-comments-value");
+    const itemsValue = document.querySelector(".viewer-stat-items-value");
+    if (commentsValue) commentsValue.textContent = "0";
+    if (itemsValue) itemsValue.textContent = "0";
+  });
 });
 
 // アイテム数は総コメント数の内数（アイテムが添付されていた送信だけを数えるサブセット）

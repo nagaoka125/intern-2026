@@ -7,3 +7,4 @@ import "./comments.js";
 import "./items-panel.js";
 import "./send-area.js";
 import "./lottery.js";
+import "./channels.js";

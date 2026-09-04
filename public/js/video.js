@@ -1,32 +1,49 @@
 // 動画配信サーバー（Cloudflare Workers）のHLSプレイリストURL
-const STREAM_URL = "https://intern-hls-server.tdmi0e341.workers.dev/stream.m3u8";
+const STREAM_URL = "https://intern-hls-server.tomaton.workers.dev/stream.m3u8";
+
+// チャンネル切替（channel-switched）でも同じインスタンスにloadSourceし直せるよう、
+// DOMContentLoaded後もモジュールスコープに保持しておく
+let hlsInstance = null;
+let videoEl = null;
 
 // 動画要素にHLSストリームを接続する（hls.js対応ブラウザはhls.js経由、
 // Safari等ネイティブ対応ブラウザは<video src>に直接指定する）
 document.addEventListener("DOMContentLoaded", () => {
-  const video = document.getElementById("video");
-  if (!video) return;
+  videoEl = document.getElementById("video");
+  if (!videoEl) return;
 
   if (window.Hls && Hls.isSupported()) {
-    const hls = new Hls();
-    hls.loadSource(STREAM_URL);
-    hls.attachMedia(video);
+    hlsInstance = new Hls();
+    hlsInstance.loadSource(STREAM_URL);
+    hlsInstance.attachMedia(videoEl);
 
-    hls.on(Hls.Events.ERROR, (_event, data) => {
+    hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
       if (!data.fatal) return;
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
-          hls.startLoad();
+          hlsInstance.startLoad();
           break;
         case Hls.ErrorTypes.MEDIA_ERROR:
-          hls.recoverMediaError();
+          hlsInstance.recoverMediaError();
           break;
         default:
-          hls.destroy();
+          hlsInstance.destroy();
           break;
       }
     });
-  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-    video.src = STREAM_URL;
+  } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+    videoEl.src = STREAM_URL;
+  }
+});
+
+// チャンネル一覧（channels.js）からの切替通知を受けて、新しいプレイリストを読み込み直す
+document.addEventListener("channel-switched", (event) => {
+  const streamUrl = event.detail?.streamUrl;
+  if (!videoEl || !streamUrl) return;
+
+  if (hlsInstance) {
+    hlsInstance.loadSource(streamUrl);
+  } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+    videoEl.src = streamUrl;
   }
 });

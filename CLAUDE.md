@@ -26,7 +26,8 @@
     - `send-area.js` — コメント・アイテムの送信、連続送信防止
     - `comments.js` — コメント受信（SSE）・描画、視聴統計
     - `lottery.js` — アイテム抽選
-  - `css/` — 機能ごとに分割したスタイルシート（`base.css`, `header.css`, `layout.css`, `comments.css`, `controls.css`, `items.css`, `send-area.css`, `lottery.css`, `responsive.css`）
+    - `channels.js` — チャンネル一覧の取得・描画、チャンネル切替
+  - `css/` — 機能ごとに分割したスタイルシート（`base.css`, `header.css`, `layout.css`, `comments.css`, `controls.css`, `items.css`, `send-area.css`, `lottery.css`, `responsive.css`, `channels.css`）
 - `docs/` — 講義資料（HLS・SSEの解説とハンズオン）およびADR（`docs/adr/`）。参考資料であり、アプリの実装コードではない
 - `.claude/skills/` — 導入済みスキル（domain-modeling, grilling, grill-with-docs）
 
@@ -49,6 +50,7 @@ npm run start   # http://localhost:5173/
 - `COMMENT_EVENTS_URL`（`js/comments.js`） — SSE コメント受信
 - `COMMENT_MESSAGES_URL`（`js/send-area.js`） — コメント送信（POST）
 - `ITEMS_URL`（`js/items.js`） — アイテム一覧取得（ポーリング）
+- `CHANNELS_URL`（`js/channels.js`） — チャンネル一覧取得（同じ Cloudflare Workers ホスト）
 
 これらは外部で提供されているエンドポイントのため、URL 自体を変更する場合は意図を確認すること。
 

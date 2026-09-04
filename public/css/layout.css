@@ -1,3 +1,12 @@
+/* header + .app-container（視聴画面本体）をまとめ、常に最低1画面分の高さを確保する。
+   これにより下に置かれたチャンネル一覧などのセクションが増えても本体は縮まず、
+   代わりにページ全体のスクロールで見せる（ADR 0009参照） */
+.viewer-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
 .app-container {
   flex: 1 1 auto;
   min-height: 0;
@@ -111,6 +120,16 @@
   border-radius: 999px;
   font-size: 12px;
   color: var(--color-text-muted);
+}
+
+/* タイトルは長さがまちまちなので、他のピルを圧迫しないよう最大幅で省略表示する */
+.viewer-stat-title-value {
+  display: inline-block;
+  max-width: 30vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .comment-panel-wrapper {
