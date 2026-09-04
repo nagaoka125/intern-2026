@@ -1,0 +1,9 @@
+// 各機能モジュールを読み込む。読み込み順は元main.jsのブロック順を踏襲しているだけで、
+// 各モジュールが独立してDOMContentLoadedを登録するため実行順への依存はない
+import "./theme.js";
+import "./video.js";
+import "./header-controls.js";
+import "./comments.js";
+import "./items-panel.js";
+import "./send-area.js";
+import "./lottery.js";

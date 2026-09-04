@@ -12,8 +12,22 @@
 
 ## ディレクトリ構成
 - `public/` — 実装対象。ここ以外のファイル追加・変更は基本的に不要
-  - `index.html`, `main.js`, `styles.css`
-- `docs/` — 講義資料（HLS・SSEの解説とハンズオン）。参考資料であり、アプリの実装コードではない
+  - `index.html`
+  - `js/` — 機能ごとに分割したJavaScript（ES Modules。エントリーポイントは`main.js`で、各機能モジュールを`import`するだけ）
+    - `main.js` — エントリーポイント
+    - `theme.js` — テーマ（ダーク/ライト）の保存・適用
+    - `video.js` — 動画再生（HLS）
+    - `header-controls.js` — ヘッダーの表示切替スイッチ・設定メニュー
+    - `selection.js` — 選択中アイテムの状態（アイテムパネルと送信欄で共有）
+    - `points.js` — ポイントの保存・加算・消費
+    - `item-stock.js` — アイテム所持数の保存・増減
+    - `items.js` — アイテム一覧の取得・保持、コスト帯判定
+    - `items-panel.js` — アイテムパネルのフィルタ・描画
+    - `send-area.js` — コメント・アイテムの送信、連続送信防止
+    - `comments.js` — コメント受信（SSE）・描画、視聴統計
+    - `lottery.js` — アイテム抽選
+  - `css/` — 機能ごとに分割したスタイルシート（`base.css`, `header.css`, `layout.css`, `comments.css`, `controls.css`, `items.css`, `send-area.css`, `lottery.css`, `responsive.css`）
+- `docs/` — 講義資料（HLS・SSEの解説とハンズオン）およびADR（`docs/adr/`）。参考資料であり、アプリの実装コードではない
 - `.claude/skills/` — 導入済みスキル（domain-modeling, grilling, grill-with-docs）
 
 ## 起動・確認
@@ -30,15 +44,16 @@ npm run start   # http://localhost:5173/
 ## テスト
 実装を行う前にテストを行い、エラーが起こらなくなるまでコード編集=>テストを繰り返してください。
 
-## 外部サービス（`public/main.js` 内で定数として定義済み）
-- `STREAM_URL` — HLS 動画配信（Cloudflare Workers）
-- `COMMENT_EVENTS_URL` — SSE コメント受信
-- `COMMENT_MESSAGES_URL` — コメント送信（POST）
-- `ITEMS_URL` — アイテム一覧取得（ポーリング）
+## 外部サービス（`public/js/` 内で定数として定義済み）
+- `STREAM_URL`（`js/video.js`） — HLS 動画配信（Cloudflare Workers）
+- `COMMENT_EVENTS_URL`（`js/comments.js`） — SSE コメント受信
+- `COMMENT_MESSAGES_URL`（`js/send-area.js`） — コメント送信（POST）
+- `ITEMS_URL`（`js/items.js`） — アイテム一覧取得（ポーリング）
 
 これらは外部で提供されているエンドポイントのため、URL 自体を変更する場合は意図を確認すること。
 
 ## コーディング方針
-- 機能ごとに `DOMContentLoaded` イベント内で完結させる（動画再生／コメント受信／アイテム一覧／送信、の4ブロック構成）
+- JavaScriptは `public/js/` 配下に機能ごとのES Modulesファイルとして分割する（構成は上記「ディレクトリ構成」を参照）。ファイルをまたいで共有する状態は `export`/`import` で明示し、暗黙のグローバル変数に頼らない
+- `public/js/` 内の各ファイルでは、`export` する関数・変数の直前に「これは何か」がわかる一行コメントを日本語で付ける（JSDocのようなブロックコメントにはしない）
 - コメントは「なぜそうしているか」が非自明な箇所にのみ日本語で簡潔に残す（例: 状態管理の理由、DOM操作の最適化理由）
 - テストフレームワークは導入されていない。変更後は `npm run start` で実際にブラウザ動作を確認する
