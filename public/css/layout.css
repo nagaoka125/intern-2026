@@ -1,0 +1,99 @@
+.app-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2.5fr) minmax(0, 1fr);
+  /* 送信領域の高さは内容量（アイテムパネルの開閉・送信欄自体の表示/非表示）に応じて
+     auto で伸縮させ、その分をコメント欄（1fr）が自動的に譲る形にする。最小値を0にして
+     おくことで、送信欄を非表示にしたときに完全に0まで縮められるようにする */
+  grid-template-rows: minmax(0, 1fr) minmax(0, auto);
+  column-gap: clamp(8px, 1.5vw, 16px);
+  padding: clamp(8px, 2vw, 16px);
+  /* 送信欄自体の表示/非表示アニメーションは send-area-wrapper 側の内側グリッドで
+     行うため、この auto 行はそのラッパーの実際の高さを毎フレーム追従するだけでよい */
+  transition: grid-template-columns 300ms ease-out, column-gap 300ms ease-out;
+}
+
+/* コメント欄を非表示にすると右側の列が0幅になり、動画がその分だけ横に広がる。
+   送信領域はコメント欄と同じ列にいるため、非表示中は全幅になるよう列を跨がせる */
+.app-container.comment-hidden {
+  /* 裸の 0fr は暗黙のうちに最小幅が auto 扱いになり、中身（見出しの文字など）の
+     最小コンテンツ幅までしか縮まないため、明示的に minmax(0, 0fr) にする */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+  column-gap: 0;
+}
+
+.app-container.comment-hidden .send-area-wrapper {
+  grid-column: 1 / -1;
+}
+
+.video-area,
+.comment-panel,
+.send-area {
+  background: var(--color-surface);
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+}
+
+.video-area {
+  grid-column: 1;
+  /* 通常は縦2行分（video+comment の行 と send-area の行）をまたいで、送信領域側の
+     行の高さ（アイテムパネルの開閉で伸縮する）に動画のサイズが影響されないようにする。
+     コメント非表示時は send-area 側が全幅になるため、重ならないよう1行目だけに戻す */
+  grid-row: 1 / -1;
+  min-height: 0;
+  /* width/height を明示せず auto + max-width/max-height + aspect-ratio の
+     組み合わせにすることで、幅・高さのどちらが制約になっても16:9を保ったまま
+     縮小される（幅が定義値だと max-height で高さだけ潰れて比率が崩れるため） */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  justify-self: center;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: solid;
+}
+
+.app-container.comment-hidden .video-area {
+  grid-row: 1;
+}
+
+.video-area video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #000;
+}
+
+.comment-panel-wrapper {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 表示/非表示のアニメーションは item-panel-wrapper と同じ、内側に1行だけの
+   グリッドを敷いて grid-template-rows を 0fr <-> 1fr で遷移させる方式にする
+   （外側 app-container 側の auto 行は、この内側の遷移に追従して毎フレーム
+   自動的に再計算されるため、外側の値をJSで直接アニメーションさせる必要はない） */
+.send-area-wrapper {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  transition: grid-template-rows 250ms ease-out;
+}
+
+.app-container.send-hidden .send-area-wrapper {
+  grid-template-rows: minmax(0, 0fr);
+}

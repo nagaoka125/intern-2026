@@ -1,0 +1,50 @@
+:root {
+  --color-bg: #14171c;
+  --color-surface: #1d2128;
+  --color-border: #333844;
+  --color-text: #e6e8eb;
+  --color-text-muted: #9aa1ad;
+  --color-accent: #3d6b8a;
+  --color-accent-hover: #4a7f9e;
+  --color-danger: #e5534b;
+  /* コスト強度演出の基準色（暖色）*/
+  --color-cost-strong: #ff5a36;
+}
+
+/* デフォルトはダークテーマ。ライトテーマは data-theme="light" を html に付与して切り替える */
+:root[data-theme="light"] {
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-border: #d8dce2;
+  --color-text: #1a1d22;
+  --color-text-muted: #6b7280;
+  --color-accent: #3d6b8a;
+  --color-accent-hover: #2f5570;
+  --color-danger: #c62828;
+}
+
+* {
+  box-sizing: border-box;
+  /* テーマ切り替え時に色をじわっと変化させる */
+  transition: background-color 400ms ease, color 400ms ease, border-color 400ms ease;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+}
+
+.placeholder-label {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}

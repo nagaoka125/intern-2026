@@ -1,0 +1,58 @@
+/* 一般的なスマートフォン幅では、比率を保った縮小をやめて縦積みレイアウトに切り替える。
+   CSS Grid の auto 行はアスペクト比指定のサイズ計算とかみ合わず動画とコメント見出しが
+   重なる不具合があったため、縦積み時は Flexbox に切り替える（幅駆動のアスペクト比計算が
+   安定する上、送信領域が伸びた分をコメント欄が自動的に譲る挙動も副次的に得られる） */
+@media (max-width: 600px) {
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    row-gap: 12px;
+    overflow-y: auto;
+  }
+
+  .video-area {
+    flex: 0 0 auto;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    /* 縦積みでは行の高さという概念がないため、画面の高さに対する上限を直接指定する */
+    max-height: 45vh;
+    transition: max-height 300ms ease-out;
+  }
+
+  /* コメント非表示時は動画に割り振れる上限を引き上げ、空いた分だけ大きく見せる */
+  .app-container.comment-hidden .video-area {
+    max-height: 70vh;
+  }
+
+  /* 縦積みでは「列の幅」という概念がないため、grid-template-rows の 0fr/1fr トリックで
+     高さ方向にスライド収納する（アイテムパネルと同じ手法） */
+  .comment-panel-wrapper {
+    flex: 1 1 auto;
+    min-height: 120px;
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 300ms ease-out, flex-basis 300ms ease-out, min-height 300ms ease-out;
+  }
+
+  .app-container.comment-hidden .comment-panel-wrapper {
+    flex: 0 0 0;
+    min-height: 0;
+    grid-template-rows: minmax(0, 0fr);
+  }
+
+  .send-area-wrapper {
+    /* デスクトップ用の height: 100% を打ち消す。flex-basis: auto は height を
+       参照するため、100% のままだと縮小不可の flex-shrink: 0 と組み合わさって
+       非表示にしても縮まなくなる（中身の高さにまかせて auto にする） */
+    height: auto;
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 300ms ease-out;
+  }
+
+  .app-container.send-hidden .send-area-wrapper {
+    grid-template-rows: minmax(0, 0fr);
+  }
+}

@@ -1,0 +1,129 @@
+.comment-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.comment-title {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.comment-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.comment-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: clamp(12px, 1.3vw, 13px);
+  line-height: 1.4;
+  word-break: break-word;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  animation: comment-slide-in 0.4s ease-out;
+}
+
+/* コスト強度演出: --cost-intensity (0〜1、main.js が計算) に応じて背景・発光・登場モーションの
+   強さを連動させる。3つの見た目を1つの値から導くことで、コストが高いほど目立つという体験を
+   一貫させる（詳細は CONTEXT.md の「コスト強度」「コスト強度演出」を参照） */
+.comment-entry--priced {
+  background-color: color-mix(in srgb, var(--color-cost-strong) calc(var(--cost-intensity) * 100%), var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-cost-strong) calc(var(--cost-intensity) * 100%), var(--color-border));
+  box-shadow: 0 0 calc(6px + var(--cost-intensity) * 22px) calc(1px + var(--cost-intensity) * 5px)
+    color-mix(in srgb, var(--color-cost-strong) calc(15% + var(--cost-intensity) * 55%), transparent);
+  animation: comment-pop-in 0.5s cubic-bezier(0.25, 1.4, 0.4, 1) both;
+}
+
+@keyframes comment-pop-in {
+  0% {
+    transform: scale(calc(0.82 - var(--cost-intensity) * 0.12)) translateX(60px);
+    opacity: 0.3;
+  }
+  55% {
+    transform: scale(calc(1 + var(--cost-intensity) * 0.16)) translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateX(0);
+  }
+}
+
+.comment-entry-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.comment-item-animation {
+  width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--color-bg);
+}
+
+@keyframes comment-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.comment-item-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.comment-item-name {
+  /* アイテム付きコメントはコスト強度演出で背景が暖色に変わるため、固有の色(青系)は
+     背景と衝突して見えにくくなる。本文と同じ色に揃えて、太字だけで区別する */
+  color: var(--color-text);
+  font-weight: 600;
+  /* 長い名前は折り返す。flex-grow:0 のままにして、短い名前まで行を占有しないようにする */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.comment-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+}
+
+.comment-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
+}
