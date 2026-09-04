@@ -4,13 +4,48 @@ const COMMENT_MESSAGES_URL = "https://intern-comment-server.intern-comment-serve
 const ITEMS_URL = "https://intern-comment-server.intern-comment-server.deno.net/items";
 const ITEMS_POLL_INTERVAL_MS = 15000;
 const MAX_COMMENT_LENGTH = 200;
-const SEND_COOLDOWN_MS = 5000;
+
+// 通常時、送信のたびに送信ボタンを無効化しておく時間
+const SEND_COOLDOWN_MS = 3000;
+// この時間内に BURST_LIMIT 回送信したら連続送信ロックをかける（詳細は CONTEXT.md の「連続送信ロック」参照）
+const BURST_WINDOW_MS = 10000;
+const BURST_LIMIT = 3;
+// 連続送信ロックがかかったときに送信不可にする時間
+const BURST_LOCK_MS = 20000;
 
 // コスト強度の正規化基準。実データの5段階(10/50/150/400/1000)に直接依存させず、
 // アイテムサーバー側で将来コスト値が増減しても見た目が破綻しないよう余裕を持たせた
 // 固定範囲を対数スケールで使う（詳細は CONTEXT.md の「コスト強度」を参照）
 const COST_INTENSITY_MIN_COST = 1;
 const COST_INTENSITY_MAX_COST = 1500;
+
+// ポイント・アイテム所持数はサーバー側にユーザー識別の仕組みがないため、テーマ設定と
+// 同じく各ブラウザの localStorage にのみ保存する（docs/adr/0005 参照）
+const POINTS_STORAGE_KEY = "points";
+const ITEM_STOCK_STORAGE_KEY = "itemStock";
+const DEFAULT_ITEM_STOCK = 10;
+
+// コメント1件・アイテム付き送信（コスト帯別、基本の1ptは含まない）で得られるポイント
+const COMMENT_POINTS = 1;
+const ITEM_POINTS_BY_COST_BAND = { low: 5, mid: 15, high: 40 };
+
+// 抽選1回の消費ポイントと、コスト帯単位の当選重み（詳細は CONTEXT.md の「抽選」参照）
+const LOTTERY_COST_POINTS = 100;
+const LOTTERY_BAND_WEIGHTS = { low: 0.65, mid: 0.27, high: 0.08 };
+
+// 抽選演出（スロット）の設定。REEL_LENGTH枚を並べ、最後の1枚を当選アイテムにして
+// ウィンドウ中央（VISIBLE_COUNTが奇数なのでちょうど真ん中）で止める
+const LOTTERY_REEL_LENGTH = 30;
+const LOTTERY_REEL_VISIBLE_COUNT = 5;
+const LOTTERY_REEL_DURATION_MS = 2500;
+
+// コスト帯は実データの5段階（10/50/150/400/1000）がちょうど3区分に分かれる。
+// アイテムパネルの絞り込み・ポイント計算・抽選の重み付けの複数箇所で共有する
+function costBandOf(cost) {
+  if (cost <= 100) return "low";
+  if (cost <= 500) return "mid";
+  return "high";
+}
 
 // 一度に選択できるアイテムは1つだけ。アイテム一覧の描画と送信処理の両方から参照する
 let selectedItemId = null;
@@ -19,10 +54,162 @@ let selectedItemId = null;
 let enterToSendEnabled = false;
 let keepSelectionAfterSend = false;
 
+// アイテム一覧はアイテムパネル表示・送信時のポイント計算・抽選対象の決定など複数箇所で
+// 共有するため、フェッチ結果をここでグローバルに保持する
+let knownItems = [];
+const itemsById = new Map();
+
+// 総コメント数・アイテム数はコメントサーバーに過去ログ取得手段がなく、SSE接続後に
+// 受信したイベントしか分からないため、ページを開いてからの累計をここで保持するだけに
+// とどめる（永続化しない・リロードで0に戻る。詳細は docs/adr/0006 参照）
+let totalCommentCount = 0;
+let totalItemCount = 0;
+
+// アイテム数は総コメント数の内数（アイテムが添付されていた送信だけを数えるサブセット）
+function recordViewerStats({ item } = {}) {
+  totalCommentCount += 1;
+  if (item) totalItemCount += 1;
+
+  const commentsValue = document.querySelector(".viewer-stat-comments-value");
+  const itemsValue = document.querySelector(".viewer-stat-items-value");
+  if (commentsValue) commentsValue.textContent = String(totalCommentCount);
+  if (itemsValue) itemsValue.textContent = String(totalItemCount);
+}
+
 function clearItemSelection() {
   selectedItemId = null;
   const selected = document.querySelector(".item-button.selected");
   if (selected) selected.classList.remove("selected");
+  document.dispatchEvent(new CustomEvent("item-selection-changed"));
+}
+
+// アイテム一覧の取得はアイテムパネル（開いたとき）と抽選（プールが空のとき）の
+// 両方から呼ばれるため、グローバルな状態更新とイベント通知をここに集約する
+async function fetchItems() {
+  try {
+    const response = await fetch(ITEMS_URL);
+    const { items } = await response.json();
+    knownItems = items;
+    for (const item of items) {
+      itemsById.set(item.id, item);
+    }
+    document.dispatchEvent(new CustomEvent("items-fetched", { detail: { items } }));
+  } catch (error) {
+    console.error("アイテム一覧の取得に失敗しました", error);
+  }
+}
+
+function getPoints() {
+  return Number(localStorage.getItem(POINTS_STORAGE_KEY)) || 0;
+}
+
+// 加算・消費のどちらも送信欄・抽選など異なるスコープから呼ばれるため、常に
+// localStorage を読み直してから書き戻し、変化をイベントで通知する
+function addPoints(amount) {
+  const points = getPoints() + amount;
+  localStorage.setItem(POINTS_STORAGE_KEY, String(points));
+  document.dispatchEvent(new CustomEvent("points-changed", { detail: { points } }));
+  return points;
+}
+
+function spendPoints(amount) {
+  return addPoints(-amount);
+}
+
+function loadItemStock() {
+  try {
+    return JSON.parse(localStorage.getItem(ITEM_STOCK_STORAGE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+// 初めて見るアイテムはここで所持数 DEFAULT_ITEM_STOCK として登録し、以後は保存済みの値を使う
+function getItemStockCount(itemId) {
+  const stock = loadItemStock();
+  if (!(itemId in stock)) {
+    stock[itemId] = DEFAULT_ITEM_STOCK;
+    localStorage.setItem(ITEM_STOCK_STORAGE_KEY, JSON.stringify(stock));
+  }
+  return stock[itemId];
+}
+
+function changeItemStock(itemId, delta) {
+  const stock = loadItemStock();
+  const current = itemId in stock ? stock[itemId] : DEFAULT_ITEM_STOCK;
+  const next = Math.max(0, current + delta);
+  stock[itemId] = next;
+  localStorage.setItem(ITEM_STOCK_STORAGE_KEY, JSON.stringify(stock));
+  document.dispatchEvent(new CustomEvent("item-stock-changed", { detail: { itemId, stock: next } }));
+  return next;
+}
+
+// 設定メニューのデバッグ機能。全アイテムの所持数を初期値に戻す
+function resetItemStock() {
+  localStorage.removeItem(ITEM_STOCK_STORAGE_KEY);
+  document.dispatchEvent(new CustomEvent("item-stock-reset"));
+}
+
+// コスト帯単位の重み付けでどの帯から出すかを決め、その帯に属するアイテムから
+// 均等な確率で1つを選ぶ（2段階抽選）。将来アイテムサーバー側の都合である帯が
+// 空になっても抽選自体は成立するよう、候補が存在する帯だけを対象にする
+function pickLotteryItem(items) {
+  const bands = { low: [], mid: [], high: [] };
+  for (const item of items) {
+    bands[costBandOf(item.cost)].push(item);
+  }
+
+  const availableBands = Object.keys(LOTTERY_BAND_WEIGHTS).filter((band) => bands[band].length > 0);
+  const totalWeight = availableBands.reduce((sum, band) => sum + LOTTERY_BAND_WEIGHTS[band], 0);
+
+  let remaining = Math.random() * totalWeight;
+  let chosenBand = availableBands[availableBands.length - 1];
+  for (const band of availableBands) {
+    remaining -= LOTTERY_BAND_WEIGHTS[band];
+    if (remaining <= 0) {
+      chosenBand = band;
+      break;
+    }
+  }
+
+  const candidates = bands[chosenBand];
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function createReelIcon(item) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "lottery-reel-icon";
+  const icon = document.createElement("img");
+  icon.src = item.iconUrl;
+  icon.alt = item.name;
+  wrapper.appendChild(icon);
+  return wrapper;
+}
+
+// 当選アイテムをウィンドウ中央で停止させるスロット演出。当選アイテムを列の最後に
+// 置き、アイコン1枚分の実測幅から中央位置までの移動量を逆算してtransformで動かす
+function playLotteryReel(reel, items, winner) {
+  return new Promise((resolve) => {
+    reel.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < LOTTERY_REEL_LENGTH - 1; i++) {
+      fragment.appendChild(createReelIcon(items[Math.floor(Math.random() * items.length)]));
+    }
+    fragment.appendChild(createReelIcon(winner));
+    reel.appendChild(fragment);
+
+    const iconWidth = reel.firstChild.getBoundingClientRect().width;
+    const centerIndex = Math.floor(LOTTERY_REEL_VISIBLE_COUNT / 2);
+    const offset = (LOTTERY_REEL_LENGTH - 1 - centerIndex) * iconWidth;
+
+    reel.style.transition = "none";
+    reel.style.transform = "translateX(0)";
+    void reel.offsetWidth; // transitionを効かせるためのreflow
+    reel.style.transition = `transform ${LOTTERY_REEL_DURATION_MS}ms cubic-bezier(0.15, 0.7, 0.2, 1)`;
+    reel.style.transform = `translateX(-${offset}px)`;
+
+    setTimeout(resolve, LOTTERY_REEL_DURATION_MS);
+  });
 }
 
 // テーマは localStorage に保存し、次回訪問時も選択を復元する。未設定時はダークがデフォルト
@@ -69,25 +256,21 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", () => {
   const appContainer = document.querySelector(".app-container");
   const commentToggle = document.querySelector(".comment-toggle");
-  const commentCheckbox = document.querySelector(".settings-comment-checkbox");
   const sendAreaToggle = document.querySelector(".send-area-toggle");
-  const sendAreaCheckbox = document.querySelector(".settings-send-area-checkbox");
   const enterToSendCheckbox = document.querySelector(".settings-enter-to-send-checkbox");
   const keepSelectionCheckbox = document.querySelector(".settings-keep-selection-checkbox");
   const settingsToggle = document.querySelector(".settings-toggle");
   const settingsMenu = document.querySelector(".settings-menu");
   const settingsRoot = document.querySelector(".settings");
   const themeOptions = document.querySelectorAll(".theme-option");
+  const resetStockButton = document.querySelector(".settings-reset-stock-button");
   if (!appContainer || !commentToggle) return;
 
-  // コメント・送信欄それぞれの表示/非表示は、ヘッダーのボタンと設定メニューの
-  // チェックボックスのどちらからも切り替えられる。片方を操作したらもう片方の
-  // 状態も同期させる
+  // コメント欄・送信欄の表示/非表示は、ヘッダーのスイッチボタンのみで切り替える
   const setCommentVisible = (visible) => {
     appContainer.classList.toggle("comment-hidden", !visible);
     commentToggle.setAttribute("aria-expanded", String(visible));
     commentToggle.setAttribute("aria-checked", String(visible));
-    if (commentCheckbox) commentCheckbox.checked = visible;
   };
 
   commentToggle.addEventListener("click", () => {
@@ -95,19 +278,12 @@ document.addEventListener("DOMContentLoaded", () => {
     setCommentVisible(!isVisible);
   });
 
-  if (commentCheckbox) {
-    commentCheckbox.addEventListener("change", () => {
-      setCommentVisible(commentCheckbox.checked);
-    });
-  }
-
   const setSendAreaVisible = (visible) => {
     appContainer.classList.toggle("send-hidden", !visible);
     if (sendAreaToggle) {
       sendAreaToggle.setAttribute("aria-expanded", String(visible));
       sendAreaToggle.setAttribute("aria-checked", String(visible));
     }
-    if (sendAreaCheckbox) sendAreaCheckbox.checked = visible;
   };
 
   if (sendAreaToggle) {
@@ -117,9 +293,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (sendAreaCheckbox) {
-    sendAreaCheckbox.addEventListener("change", () => {
-      setSendAreaVisible(sendAreaCheckbox.checked);
+  if (resetStockButton) {
+    resetStockButton.addEventListener("click", () => {
+      resetItemStock();
     });
   }
 
@@ -204,6 +380,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // 再取得しない
   let itemsFetchStarted = false;
 
+  document.addEventListener("items-fetched", (event) => {
+    renderNewItems(event.detail.items);
+  });
+
   itemPanelToggle.addEventListener("click", () => {
     const isOpen = itemPanelWrapper.classList.toggle("open");
     itemPanelToggle.setAttribute("aria-expanded", String(isOpen));
@@ -214,13 +394,6 @@ document.addEventListener("DOMContentLoaded", () => {
       setInterval(fetchItems, ITEMS_POLL_INTERVAL_MS);
     }
   });
-
-  // コスト帯は実データの5段階（10/50/150/400/1000）がちょうど3区分に分かれる
-  const costBandOf = (cost) => {
-    if (cost <= 100) return "low";
-    if (cost <= 500) return "mid";
-    return "high";
-  };
 
   const itemMatchesFilters = (item) => {
     if (activeGroups.size > 0 && !activeGroups.has(item.group)) return false;
@@ -300,7 +473,31 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedItemId = itemId;
       button.classList.add("selected");
     }
+    document.dispatchEvent(new CustomEvent("item-selection-changed"));
   };
+
+  // アイテムボタンの残り所持数表示と選択可否を更新する。送信・抽選で所持数が
+  // 変化するたびに呼ばれる（item-stock-changed 経由）ほか、初回描画時にも呼ぶ
+  const updateStockDisplay = (itemId) => {
+    const entry = renderedItems.get(itemId);
+    if (!entry) return;
+    const stock = getItemStockCount(itemId);
+    entry.stockEl.textContent = `所持数：${stock}個`;
+    entry.button.disabled = stock <= 0;
+    if (stock <= 0 && selectedItemId === itemId) {
+      clearItemSelection();
+    }
+  };
+
+  document.addEventListener("item-stock-changed", (event) => {
+    updateStockDisplay(event.detail.itemId);
+  });
+
+  document.addEventListener("item-stock-reset", () => {
+    for (const itemId of renderedItems.keys()) {
+      updateStockDisplay(itemId);
+    }
+  });
 
   // 新規アイテムだけを DocumentFragment にまとめて1回のDOM操作で追加する
   // （大量のアイテムが一度に増えてもリフローが1回で済む）
@@ -318,6 +515,10 @@ document.addEventListener("DOMContentLoaded", () => {
       button.title = item.name;
       button.addEventListener("click", () => toggleItemSelection(item.id, button));
 
+      const stock = document.createElement("span");
+      stock.className = "item-stock";
+      button.appendChild(stock);
+
       const icon = document.createElement("img");
       icon.className = "item-icon";
       icon.src = item.iconUrl;
@@ -332,19 +533,10 @@ document.addEventListener("DOMContentLoaded", () => {
       button.hidden = !itemMatchesFilters(item);
 
       fragment.appendChild(button);
-      renderedItems.set(item.id, { item, button });
+      renderedItems.set(item.id, { item, button, stockEl: stock });
+      updateStockDisplay(item.id);
     }
     itemList.appendChild(fragment);
-  };
-
-  const fetchItems = async () => {
-    try {
-      const response = await fetch(ITEMS_URL);
-      const { items } = await response.json();
-      renderNewItems(items);
-    } catch (error) {
-      console.error("アイテム一覧の取得に失敗しました", error);
-    }
   };
 });
 
@@ -356,6 +548,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const sendButton = sendArea.querySelector(".send-button");
   const errorEl = sendArea.querySelector(".send-error");
 
+  // 送信中・通常クールダウン・連続送信ロックは別々の理由で送信ボタンを止める
+  // 独立した状態なので、それぞれ保持して updateSendButtonState で合成する。
+  // isSending が無いと、送信リクエスト待ち中に入力欄へ文字を打っただけで
+  // input イベント経由の再計算がボタンを再度有効化してしまう（クールダウンが
+  // 実際に効き始めるのは fetch 完了後のため）
+  let isSending = false;
+  let isCoolingDown = false;
+  let isBurstLocked = false;
+  let recentSendTimestamps = [];
+
   const showSendError = (message) => {
     errorEl.textContent = message;
     errorEl.hidden = false;
@@ -364,6 +566,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const hideSendError = () => {
     errorEl.hidden = true;
     errorEl.textContent = "";
+  };
+
+  // 入力欄が空かつアイテム未選択のときは押せないようにする（クールダウン・
+  // 連続送信ロックとは独立した条件なので OR で合成する）
+  const updateSendButtonState = () => {
+    const hasContent = Boolean(input.value.trim()) || Boolean(selectedItemId);
+    sendButton.disabled = !hasContent || isSending || isCoolingDown || isBurstLocked;
+  };
+
+  input.addEventListener("input", updateSendButtonState);
+  document.addEventListener("item-selection-changed", updateSendButtonState);
+  updateSendButtonState();
+
+  // 直近 BURST_WINDOW_MS 以内の送信回数が BURST_LIMIT に達したら、通常の
+  // クールダウンとは別に BURST_LOCK_MS の間ロックする（連打対策）
+  const registerSendAttempt = () => {
+    const now = Date.now();
+    recentSendTimestamps = recentSendTimestamps.filter((t) => now - t < BURST_WINDOW_MS);
+    recentSendTimestamps.push(now);
+
+    if (recentSendTimestamps.length >= BURST_LIMIT) {
+      isBurstLocked = true;
+      recentSendTimestamps = [];
+      setTimeout(() => {
+        isBurstLocked = false;
+        updateSendButtonState();
+      }, BURST_LOCK_MS);
+    }
   };
 
   const sendComment = async () => {
@@ -383,6 +613,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
+
+      // ポイント加算・所持数の消費は送信が成功した場合のみ行う（失敗時は変化させない）
+      if (itemId) {
+        const item = itemsById.get(itemId);
+        addPoints(ITEM_POINTS_BY_COST_BAND[costBandOf(item.cost)]);
+        changeItemStock(itemId, -1);
+      } else {
+        addPoints(COMMENT_POINTS);
+      }
+
       input.value = "";
       if (!keepSelectionAfterSend) {
         clearItemSelection();
@@ -394,20 +634,23 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   sendButton.addEventListener("click", async () => {
-    const text = input.value.trim();
-    const itemId = selectedItemId;
-    if (!text && !itemId) return;
-
     hideSendError();
-    sendButton.disabled = true;
+    registerSendAttempt();
+
+    isSending = true;
+    updateSendButtonState();
     sendButton.textContent = "送信中...";
 
     await sendComment();
 
+    isSending = false;
     sendButton.textContent = "送信";
+    isCoolingDown = true;
     setTimeout(() => {
-      sendButton.disabled = false;
+      isCoolingDown = false;
+      updateSendButtonState();
     }, SEND_COOLDOWN_MS);
+    updateSendButtonState();
   });
 
   // 設定でオンにした場合のみ、Enter単体で送信する（Shift+Enterは改行のまま）
@@ -419,12 +662,69 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  const lotteryButton = document.querySelector(".lottery-toggle");
+  const modal = document.querySelector(".lottery-modal-overlay");
+  if (!lotteryButton || !modal) return;
+
+  const pointsLabel = lotteryButton.querySelector(".lottery-points");
+  const reel = modal.querySelector(".lottery-reel");
+  const resultEl = modal.querySelector(".lottery-result");
+  const closeButton = modal.querySelector(".lottery-close");
+
+  const updateLotteryButton = (points) => {
+    pointsLabel.textContent = points;
+    lotteryButton.disabled = points < LOTTERY_COST_POINTS;
+  };
+  updateLotteryButton(getPoints());
+
+  document.addEventListener("points-changed", (event) => updateLotteryButton(event.detail.points));
+
+  closeButton.addEventListener("click", () => {
+    modal.hidden = true;
+    reel.innerHTML = "";
+  });
+
+  lotteryButton.addEventListener("click", async () => {
+    if (getPoints() < LOTTERY_COST_POINTS) return;
+
+    lotteryButton.disabled = true;
+
+    // アイテムパネルを一度も開いていない場合、抽選プールがまだ空のことがあるため
+    // その場で1回だけ取得しにいく
+    if (knownItems.length === 0) {
+      await fetchItems();
+    }
+    if (knownItems.length === 0) {
+      updateLotteryButton(getPoints());
+      return;
+    }
+
+    spendPoints(LOTTERY_COST_POINTS);
+    const winner = pickLotteryItem(knownItems);
+    changeItemStock(winner.id, 1);
+
+    resultEl.hidden = true;
+    closeButton.hidden = true;
+    modal.hidden = false;
+
+    await playLotteryReel(reel, knownItems, winner);
+
+    resultEl.textContent = `${winner.name} を獲得しました！`;
+    resultEl.hidden = false;
+    closeButton.hidden = false;
+    updateLotteryButton(getPoints());
+  });
+});
+
 // 自動スクロールを続けるとみなす、最下部からの許容誤差(px)
 const AUTOSCROLL_THRESHOLD_PX = 20;
 
 // 受信したコメント・アイテムを1件、コメント表示領域に追加する
 function addComment(commentArea, { text, item, timestamp } = {}) {
   if (!text && !item) return;
+
+  recordViewerStats({ item });
 
   // 追加前の時点で最下部付近にいたかどうかで、追加後に自動スクロールするか決める
   // （過去ログを読むために上にスクロールしている最中に強制的に飛ばされないようにする）

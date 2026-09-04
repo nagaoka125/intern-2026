@@ -35,12 +35,39 @@
   border-radius: 8px;
 }
 
-.video-area {
+/* 動画の枠(.video-area)と視聴統計カウンター(.viewer-stats)をまとめるラッパー。
+   カウンターを動画の「枠の外・直下」に置くための入れ物で、グリッド上の配置は
+   これまで .video-area が持っていたものをそのまま引き継ぐ（ADR 0001 の
+   サイズ計算技法は .video-area 自身の指定なのでここでは変更しない）。
+   内側は grid ではなく flex (column) にする。grid-template-rows に auto を
+   使うと、aspect-ratio 指定を持つ動画の実際の描画高さより行の自動サイズ計算が
+   小さく見積もられてカウンターと重なる不具合が起きることが分かっている
+   （ADR 0002 で報告済みの同種の不具合）。flex + justify-content: center なら
+   動画とカウンターをひとまとまりとして扱い、縦2行ぶんの余白を動画の上下に
+   均等に配分できる（結果として、動画がレターボックスされて上下に余白ができる
+   場面でも、カウンターは動画のすぐ下に隙間なく表示される） */
+.video-area-wrapper {
   grid-column: 1;
   /* 通常は縦2行分（video+comment の行 と send-area の行）をまたいで、送信領域側の
      行の高さ（アイテムパネルの開閉で伸縮する）に動画のサイズが影響されないようにする。
      コメント非表示時は send-area 側が全幅になるため、重ならないよう1行目だけに戻す */
   grid-row: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* カウンター行(.viewer-stats)は常に右寄せにする。動画自体は .video-area 側の
+     align-self: center が優先されるため、ここでの flex-end の影響を受けない */
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.app-container.comment-hidden .video-area-wrapper {
+  grid-row: 1;
+}
+
+.video-area {
   min-height: 0;
   /* width/height を明示せず auto + max-width/max-height + aspect-ratio の
      組み合わせにすることで、幅・高さのどちらが制約になっても16:9を保ったまま
@@ -58,16 +85,32 @@
   border-style: solid;
 }
 
-.app-container.comment-hidden .video-area {
-  grid-row: 1;
-}
-
 .video-area video {
   width: 100%;
   height: 100%;
   object-fit: contain;
   border-radius: 8px;
   background: #000;
+}
+
+/* 総コメント数・アイテム数のカウンター表示（画面領域枠の外側・直下、常に右寄せ）。
+   ページを開いてからの累計であることについては ADR 0006 を参照 */
+.viewer-stats {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+}
+
+.viewer-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--color-text-muted);
 }
 
 .comment-panel-wrapper {

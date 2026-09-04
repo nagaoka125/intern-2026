@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/css/controls.css" />
     <link rel="stylesheet" href="/css/items.css" />
     <link rel="stylesheet" href="/css/send-area.css" />
+    <link rel="stylesheet" href="/css/lottery.css" />
     <link rel="stylesheet" href="/css/responsive.css" />
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="/main.js" defer></script>
@@ -19,6 +20,10 @@
     <header class="app-header">
       <h1>視聴画面</h1>
       <div class="header-actions">
+        <button type="button" class="lottery-toggle" disabled>
+          <span aria-hidden="true">🎰</span>
+          抽選 (<span class="lottery-points">0</span>/100pt)
+        </button>
         <button
           type="button"
           class="comment-toggle"
@@ -51,16 +56,6 @@
           </button>
           <div class="settings-menu" id="settings-menu">
             <label class="settings-item">
-              <span>コメントを表示</span>
-              <input type="checkbox" class="settings-switch-checkbox settings-comment-checkbox" checked />
-              <span class="switch-track" aria-hidden="true"></span>
-            </label>
-            <label class="settings-item">
-              <span>送信欄を表示</span>
-              <input type="checkbox" class="settings-switch-checkbox settings-send-area-checkbox" checked />
-              <span class="switch-track" aria-hidden="true"></span>
-            </label>
-            <label class="settings-item">
               <span>Enterキーで送信する</span>
               <input type="checkbox" class="settings-switch-checkbox settings-enter-to-send-checkbox" />
               <span class="switch-track" aria-hidden="true"></span>
@@ -77,14 +72,30 @@
                 <button type="button" class="theme-option" data-theme-choice="light">☀️ ライト</button>
               </div>
             </div>
+            <div class="settings-item settings-debug">
+              <span class="settings-debug-label">確認用</span>
+              <button type="button" class="settings-reset-stock-button">アイテム所持数をリセット</button>
+            </div>
           </div>
         </div>
       </div>
     </header>
     <div class="app-container">
-      <section class="video-area" aria-label="動画表示領域">
-        <video id="video" controls autoplay muted playsinline></video>
-      </section>
+      <div class="video-area-wrapper">
+        <section class="video-area" aria-label="動画表示領域">
+          <video id="video" controls autoplay muted playsinline></video>
+        </section>
+        <div class="viewer-stats" aria-label="視聴統計">
+          <span class="viewer-stat">
+            <span aria-hidden="true">💬</span>
+            <span class="viewer-stat-comments-value">0</span>
+          </span>
+          <span class="viewer-stat">
+            <span aria-hidden="true">🎁</span>
+            <span class="viewer-stat-items-value">0</span>
+          </span>
+        </div>
+      </div>
       <div class="comment-panel-wrapper">
         <div class="comment-panel" id="comment-panel" aria-label="コメント表示領域">
           <h2 class="comment-title">コメント</h2>
@@ -128,6 +139,15 @@
           </div>
           <p class="send-error" role="alert" hidden></p>
         </section>
+      </div>
+    </div>
+    <div class="lottery-modal-overlay" hidden>
+      <div class="lottery-modal" role="dialog" aria-modal="true" aria-label="アイテム抽選">
+        <div class="lottery-reel-wrapper">
+          <div class="lottery-reel"></div>
+        </div>
+        <p class="lottery-result" hidden></p>
+        <button type="button" class="lottery-close" hidden>閉じる</button>
       </div>
     </div>
   </body>

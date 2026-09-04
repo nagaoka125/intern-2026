@@ -10,9 +10,16 @@
     overflow-y: auto;
   }
 
-  .video-area {
+  /* 内側の flex column 構成(video-area + viewer-stats)はデスクトップと共通のまま、
+     外側(.app-containerの子としての役割)だけを幅駆動の縮小に切り替える。
+     video-area-wrapper が動画+カウンターの行、続けて comment-panel-wrapper という
+     並び順自体は変わらないので、結果的にカウンターは「動画の下・コメント欄の上」に来る */
+  .video-area-wrapper {
     flex: 0 0 auto;
     width: auto;
+  }
+
+  .video-area {
     height: auto;
     max-width: 100%;
     /* 縦積みでは行の高さという概念がないため、画面の高さに対する上限を直接指定する */

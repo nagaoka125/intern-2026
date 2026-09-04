@@ -1,6 +1,7 @@
 .item-panel-toggle,
 .comment-toggle,
-.send-area-toggle {
+.send-area-toggle,
+.lottery-toggle {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -17,8 +18,14 @@
 
 .item-panel-toggle:hover,
 .comment-toggle:hover,
-.send-area-toggle:hover {
+.send-area-toggle:hover,
+.lottery-toggle:hover:not(:disabled) {
   border-color: var(--color-accent);
+}
+
+.lottery-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .item-panel-toggle-icon {
